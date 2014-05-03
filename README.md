@@ -33,14 +33,14 @@ Example Client:
 ---------------
 
 ```go
+    conn, _ := net.Dial("tcp", "127.0.0.1:5000")
+
     clt := NewClient(conn)
     clt.Handle("mult", func(client *Client, args *Args, reply *Reply) error {
         *reply = Reply(args.A * args.B)
         return nil
     })
-
-    conn, _ := net.Dial("tcp", "127.0.0.1:5000")
-    go clt.ServeConn(conn)
+    go clt.Run()
 
     var rep Reply
     clt.Call("add", Args{1, 2}, &rep)
