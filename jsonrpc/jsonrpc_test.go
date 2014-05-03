@@ -55,6 +55,7 @@ func TestWebSocketJSONRPC(t *testing.T) {
 		*reply = Reply(args.A * args.B)
 		return nil
 	})
+	go clt.Run()
 
 	var rep Reply
 	err = clt.Call("add", Args{1, 2}, &rep)
