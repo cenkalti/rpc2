@@ -13,6 +13,7 @@ In order to do this it adds a `*Client` argument to method signatures.
 Example Server:
 ---------------
 
+```go
     srv := NewServer()
     srv.Handle("add", func(client *Client, args *Args, reply *Reply) error {
         // Reversed call (server to client)
@@ -26,10 +27,12 @@ Example Server:
 
     lis, _ := net.Listen("tcp", "127.0.0.1:5000")
     srv.Accept(lis)
+```
 
 Example Client:
 ---------------
 
+```go
     clt := NewClient(conn)
     clt.Handle("mult", func(client *Client, args *Args, reply *Reply) error {
         *reply = Reply(args.A * args.B)
@@ -42,4 +45,4 @@ Example Client:
     var rep Reply
     clt.Call("add", Args{1, 2}, &rep)
     fmt.Println("add result:", rep)
-
+```
