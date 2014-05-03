@@ -50,6 +50,7 @@ func NewServer() *Server {
 	}
 }
 
+// Handle registers the handler function for the given method. If a handler already exists for method, Handle panics.
 func (s *Server) Handle(method string, handlerFunc interface{}) {
 	addHandler(s.handlers, method, handlerFunc)
 }
@@ -118,12 +119,14 @@ func isExported(name string) bool {
 	return unicode.IsUpper(rune)
 }
 
+// OnConnect registers a function to run when a client connects.
 func (s *Server) OnConnect(f func(*Client)) {
 	s.eventHub.Subscribe(clientConnected, func(e hub.Event) {
 		go f(e.(connectionEvent).Client)
 	})
 }
 
+// OnDisconnect registers a function to run when a client disconnects.
 func (s *Server) OnDisconnect(f func(*Client)) {
 	s.eventHub.Subscribe(clientDisconnected, func(e hub.Event) {
 		go f(e.(disconnectionEvent).Client)
