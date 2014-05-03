@@ -36,18 +36,18 @@ func NewClient(conn io.ReadWriteCloser) *Client {
 // NewClientWithCodec is like NewClient but uses the specified
 // codec to encode requests and decode responses.
 func NewClientWithCodec(codec Codec) *Client {
-	client := newClientWithCodec(codec)
-	go client.readLoop()
-	return client
-}
-
-func newClientWithCodec(codec Codec) *Client {
 	return &Client{
 		codec:      codec,
 		pending:    make(map[uint64]*Call),
 		handlers:   make(map[string]*handler),
 		disconnect: make(chan struct{}),
 	}
+}
+
+// Run the client's read loop.
+// You must run this method before calling any methods on the server.
+func (c *Client) Run() {
+	c.readLoop()
 }
 
 // DisconnectNotify returns a channel that is closed

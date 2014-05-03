@@ -154,10 +154,10 @@ func (s *Server) ServeCodec(codec Codec) {
 	defer codec.Close()
 
 	// Client also handles the incoming connections.
-	c := newClientWithCodec(codec)
+	c := NewClientWithCodec(codec)
 	c.handlers = s.handlers
 
 	s.eventHub.Publish(connectionEvent{c})
-	c.readLoop()
+	c.Run()
 	s.eventHub.Publish(disconnectionEvent{c})
 }
