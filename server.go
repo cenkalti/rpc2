@@ -55,6 +55,10 @@ func (s *Server) Handle(method string, handlerFunc interface{}) {
 }
 
 func addHandler(handlers map[string]*handler, mname string, handlerFunc interface{}) {
+	if _, ok := handlers[mname]; ok {
+		panic("rpc2: multiple registrations for " + mname)
+	}
+
 	method := reflect.ValueOf(handlerFunc)
 	mtype := method.Type()
 	// Method needs three ins: *client, *args, *reply.
