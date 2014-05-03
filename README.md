@@ -10,12 +10,20 @@ That means server can call the methods of client.
 This is not possible with net/rpc package.
 In order to do this it adds a `*Client` argument to method signatures.
 
-Example Server:
+Install
+--------
+
+    go get github.com/cenkalti/rpc2
+
+Example server
 ---------------
 
 ```go
-    srv := NewServer()
-    srv.Handle("add", func(client *Client, args *Args, reply *Reply) error {
+    type Args struct{ A, B int }
+    type Reply int
+
+    srv := rpc2.NewServer()
+    srv.Handle("add", func(client *rpc2.Client, args *Args, reply *Reply) error {
         // Reversed call (server to client)
         var rep Reply
         client.Call("mult", Args{2, 3}, &rep)
@@ -29,14 +37,17 @@ Example Server:
     srv.Accept(lis)
 ```
 
-Example Client:
+Example Client
 ---------------
 
 ```go
+    type Args struct{ A, B int }
+    type Reply int
+
     conn, _ := net.Dial("tcp", "127.0.0.1:5000")
 
-    clt := NewClient(conn)
-    clt.Handle("mult", func(client *Client, args *Args, reply *Reply) error {
+    clt := rpc2.NewClient(conn)
+    clt.Handle("mult", func(client *rpc2.Client, args *Args, reply *Reply) error {
         *reply = Reply(args.A * args.B)
         return nil
     })
