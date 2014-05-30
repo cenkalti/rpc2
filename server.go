@@ -17,7 +17,7 @@ var typeOfError = reflect.TypeOf((*error)(nil)).Elem()
 var typeOfClient = reflect.TypeOf((*Client)(nil))
 
 const (
-	clientConnected hub.Kind = iota
+	clientConnected = iota
 	clientDisconnected
 )
 
@@ -40,13 +40,13 @@ type disconnectionEvent struct {
 	Client *Client
 }
 
-func (connectionEvent) Kind() hub.Kind    { return clientConnected }
-func (disconnectionEvent) Kind() hub.Kind { return clientDisconnected }
+func (connectionEvent) Kind() int    { return clientConnected }
+func (disconnectionEvent) Kind() int { return clientDisconnected }
 
 func NewServer() *Server {
 	return &Server{
 		handlers: make(map[string]*handler),
-		eventHub: hub.New(),
+		eventHub: &hub.Hub{},
 	}
 }
 
