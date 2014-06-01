@@ -20,6 +20,7 @@ type Client struct {
 	pending    map[uint64]*Call
 	closing    bool
 	shutdown   bool
+	server     bool
 	codec      Codec
 	handlers   map[string]*handler
 	disconnect chan struct{}
@@ -69,7 +70,7 @@ func (c *Client) readLoop() {
 	var err error
 	var req Request
 	var resp Response
-	for {
+	for err == nil {
 		req = Request{}
 		resp = Response{}
 		if err = c.codec.ReadHeader(&req, &resp); err != nil {
@@ -78,12 +79,12 @@ func (c *Client) readLoop() {
 
 		if req.Method != "" {
 			// request comes to server
-			if err := c.readRequest(&req); err != nil {
+			if err = c.readRequest(&req); err != nil {
 				log.Println("rpc2: error reading request:", err.Error())
 			}
 		} else {
 			// response comes to client
-			if err := c.readResponse(&resp); err != nil {
+			if err = c.readResponse(&resp); err != nil {
 				log.Println("rpc2: error reading response:", err.Error())
 			}
 		}
@@ -106,7 +107,7 @@ func (c *Client) readLoop() {
 	}
 	c.mutex.Unlock()
 	c.sending.Unlock()
-	if err != io.EOF && !closing {
+	if err != io.EOF && !closing && !c.server {
 		log.Println("rpc2: client protocol error:", err)
 	}
 	close(c.disconnect)

@@ -162,6 +162,7 @@ func (s *Server) ServeCodec(codec Codec) {
 
 	// Client also handles the incoming connections.
 	c := NewClientWithCodec(codec)
+	c.server = true
 	c.handlers = s.handlers
 
 	s.eventHub.Publish(connectionEvent{c})
