@@ -11,7 +11,7 @@ const (
 	addr    = "127.0.0.1:5000"
 )
 
-func TestWebSocketJSONRPC(t *testing.T) {
+func TestJSONRPC(t *testing.T) {
 	type Args struct{ A, B int }
 	type Reply int
 
