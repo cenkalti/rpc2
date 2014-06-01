@@ -114,7 +114,14 @@ func (c *Client) readLoop() {
 }
 
 func (c *Client) readRequest(req *Request) error {
-	method := c.handlers[req.Method]
+	method, ok := c.handlers[req.Method]
+	if !ok {
+		resp := &Response{
+			Seq:   req.Seq,
+			Error: "rpc2: can't find method " + req.Method,
+		}
+		return c.codec.WriteResponse(resp, resp)
+	}
 
 	// Decode the argument value.
 	var argv reflect.Value

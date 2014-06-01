@@ -58,4 +58,10 @@ func TestTCPGOB(t *testing.T) {
 	if rep != 3 {
 		t.Fatalf("not expected: %d", rep)
 	}
+
+	// Test undefined method.
+	err = clt.Call("foo", 1, &rep)
+	if err.Error() != "rpc2: can't find method foo" {
+		t.Fatal(err)
+	}
 }
