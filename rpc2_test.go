@@ -48,6 +48,7 @@ func TestTCPGOB(t *testing.T) {
 		return nil
 	})
 	go clt.Run()
+	defer clt.Close()
 
 	var rep Reply
 	err = clt.Call("add", Args{1, 2}, &rep)
