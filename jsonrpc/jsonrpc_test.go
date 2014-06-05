@@ -4,6 +4,7 @@ import (
 	"github.com/cenkalti/rpc2"
 	"net"
 	"testing"
+	"time"
 )
 
 const (
@@ -36,6 +37,11 @@ func TestJSONRPC(t *testing.T) {
 
 		return nil
 	})
+	number := make(chan int, 1)
+	srv.Handle("set", func(client *rpc2.Client, i int, _ *struct{}) error {
+		number <- i
+		return nil
+	})
 
 	go func() {
 		conn, err := lis.Accept()
@@ -57,13 +63,33 @@ func TestJSONRPC(t *testing.T) {
 	})
 	go clt.Run()
 
+	// Test Call.
 	var rep Reply
 	err = clt.Call("add", Args{1, 2}, &rep)
 	if err != nil {
 		t.Fatal(err)
 	}
-
 	if rep != 3 {
 		t.Fatalf("not expected: %d", rep)
+	}
+
+	// Test notification.
+	err = clt.Notify("set", 6)
+	if err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case i := <-number:
+		if i != 6 {
+			t.Fatalf("unexpected number: %d", i)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("did not get notification")
+	}
+
+	// Test undefined method.
+	err = clt.Call("foo", 1, &rep)
+	if err.Error() != "rpc2: can't find method foo" {
+		t.Fatal(err)
 	}
 }
