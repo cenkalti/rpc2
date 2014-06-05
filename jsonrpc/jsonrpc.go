@@ -20,6 +20,7 @@ type jsonCodec struct {
 	serverRequest  serverRequest
 	clientRequest  clientRequest
 	clientResponse clientResponse
+	notification   *Notification
 
 	// JSON-RPC clients can use arbitrary json values as request IDs.
 	// Package rpc expects uint64 request IDs.
@@ -29,15 +30,17 @@ type jsonCodec struct {
 	// the response to find the original request ID.
 	mutext  sync.Mutex // protects seq, pending
 	pending map[uint64]*json.RawMessage
-	seq     uint64
+	seq     *uint64
 }
 
 func NewJSONCodec(conn io.ReadWriteCloser) rpc2.Codec {
+	var seq uint64 = 1
 	return &jsonCodec{
 		dec:     json.NewDecoder(conn),
 		enc:     json.NewEncoder(conn),
 		c:       conn,
 		pending: make(map[uint64]*json.RawMessage),
+		seq:     &seq,
 	}
 }
 
@@ -65,10 +68,21 @@ type serverResponse struct {
 
 type message struct {
 	Method string           `json:"method"`
-	Params *json.RawMessage `json:"params"`
-	Id     *json.RawMessage `json:"id"`
-	Result *json.RawMessage `json:"result"`
-	Error  interface{}      `json:"error"`
+	Params *json.RawMessage `json:"params,omitempty"`
+	Id     *json.RawMessage `json:"id,omitempty"`
+	Result *json.RawMessage `json:"result,omitempty"`
+	Error  interface{}      `json:"error,omitempty"`
+}
+
+type Notification struct {
+	Method string         `json:"method"`
+	Params [1]interface{} `json:"params"`
+}
+
+type ResponseError struct {
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
 }
 
 func (c *jsonCodec) ReadHeader(req *rpc2.Request, resp *rpc2.Response) error {
@@ -89,8 +103,8 @@ func (c *jsonCodec) ReadHeader(req *rpc2.Request, resp *rpc2.Response) error {
 		// RPC package expects uint64.  Translate to
 		// internal uint64 and save JSON on the side.
 		c.mutext.Lock()
-		c.seq++
-		c.pending[c.seq] = c.serverRequest.Id
+		*c.seq++
+		c.pending[*c.seq] = c.serverRequest.Id
 		c.serverRequest.Id = nil
 		req.Seq = c.seq
 		c.mutext.Unlock()
@@ -108,7 +122,7 @@ func (c *jsonCodec) ReadHeader(req *rpc2.Request, resp *rpc2.Response) error {
 		c.clientResponse.Error = c.msg.Error
 
 		resp.Error = ""
-		resp.Seq = c.clientResponse.Id
+		resp.Seq = &c.clientResponse.Id
 		if c.clientResponse.Error != nil || c.clientResponse.Result == nil {
 			x, ok := c.clientResponse.Error.(string)
 			if !ok {
@@ -153,7 +167,7 @@ func (c *jsonCodec) ReadResponseBody(x interface{}) error {
 func (c *jsonCodec) WriteRequest(r *rpc2.Request, param interface{}) error {
 	c.clientRequest.Method = r.Method
 	c.clientRequest.Params[0] = param
-	c.clientRequest.Id = r.Seq
+	c.clientRequest.Id = *r.Seq
 	return c.enc.Encode(&c.clientRequest)
 }
 
@@ -162,12 +176,12 @@ var null = json.RawMessage([]byte("null"))
 func (c *jsonCodec) WriteResponse(r *rpc2.Response, x interface{}) error {
 	var resp serverResponse
 	c.mutext.Lock()
-	b, ok := c.pending[r.Seq]
+	b, ok := c.pending[*r.Seq]
 	if !ok {
 		c.mutext.Unlock()
 		return errors.New("invalid sequence number in response")
 	}
-	delete(c.pending, r.Seq)
+	delete(c.pending, *r.Seq)
 	c.mutext.Unlock()
 
 	if b == nil {
@@ -183,6 +197,13 @@ func (c *jsonCodec) WriteResponse(r *rpc2.Response, x interface{}) error {
 	}
 	return c.enc.Encode(resp)
 
+}
+
+func (c *jsonCodec) Notify(r *rpc2.Response, method string, params interface{}) error {
+	var resp Notification
+	resp.Method = method
+	resp.Params[0] = params
+	return c.enc.Encode(resp)
 }
 
 func (c *jsonCodec) Close() error {

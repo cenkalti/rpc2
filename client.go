@@ -16,7 +16,7 @@ type Client struct {
 	mutex      sync.Mutex // protects pending, seq, request
 	sending    sync.Mutex
 	request    Request // temp area used in send()
-	seq        uint64
+	seq        *uint64
 	pending    map[uint64]*Call
 	closing    bool
 	shutdown   bool
@@ -37,11 +37,13 @@ func NewClient(conn io.ReadWriteCloser) *Client {
 // NewClientWithCodec is like NewClient but uses the specified
 // codec to encode requests and decode responses.
 func NewClientWithCodec(codec Codec) *Client {
+	var seq uint64 = 1
 	return &Client{
 		codec:      codec,
 		pending:    make(map[uint64]*Call),
 		handlers:   make(map[string]*handler),
 		disconnect: make(chan struct{}),
+		seq:        &seq,
 	}
 }
 
@@ -146,6 +148,12 @@ func (c *Client) readRequest(req *Request) error {
 	// Call handler function.
 	go func(req Request) error {
 		returnValues := method.fn.Call([]reflect.Value{reflect.ValueOf(c), argv, replyv})
+
+		// FIXME: return if it is an notification
+		if method.replyType.Elem().Name() == "NotificationReply" {
+			return nil
+		}
+
 		// The return value for the method is an error.
 		errInter := returnValues[0].Interface()
 		errmsg := ""
@@ -165,8 +173,8 @@ func (c *Client) readRequest(req *Request) error {
 func (c *Client) readResponse(resp *Response) error {
 	seq := resp.Seq
 	c.mutex.Lock()
-	call := c.pending[seq]
-	delete(c.pending, seq)
+	call := c.pending[*seq]
+	delete(c.pending, *seq)
 	c.mutex.Unlock()
 
 	var err error
@@ -268,11 +276,11 @@ var ErrShutdown = errors.New("connection is shut down")
 
 // Call represents an active RPC.
 type Call struct {
-	Method string      // The name of the service and method to call.
-	Args   interface{} // The argument to the function (*struct).
-	Reply  interface{} // The reply from the function (*struct).
-	Error  error       // After completion, the error status.
-	Done   chan *Call  // Strobes when call is complete.
+	Method       string      // The name of the service and method to call.
+	Args         interface{} // The argument to the function (*struct).
+	Reply        interface{} // The reply from the function (*struct).
+	Error        error       // After completion, the error status.
+	Done         chan *Call  // Strobes when call is complete.
 }
 
 func (c *Client) send(call *Call) {
@@ -288,8 +296,8 @@ func (c *Client) send(call *Call) {
 		return
 	}
 	seq := c.seq
-	c.seq++
-	c.pending[seq] = call
+	*c.seq++
+	c.pending[*seq] = call
 	c.mutex.Unlock()
 
 	// Encode and send the request.
@@ -298,12 +306,16 @@ func (c *Client) send(call *Call) {
 	err := c.codec.WriteRequest(&c.request, call.Args)
 	if err != nil {
 		c.mutex.Lock()
-		call = c.pending[seq]
-		delete(c.pending, seq)
+		call = c.pending[*seq]
+		delete(c.pending, *seq)
 		c.mutex.Unlock()
 		if call != nil {
 			call.Error = err
 			call.done()
 		}
 	}
+}
+
+func (c *Client) Notify(r *Response, method string, params interface{}) error {
+	return c.codec.Notify(r, method, params)
 }

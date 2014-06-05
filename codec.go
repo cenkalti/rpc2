@@ -30,20 +30,23 @@ type Codec interface {
 	// WriteResponse must be safe for concurrent use by multiple goroutines.
 	WriteResponse(*Response, interface{}) error
 
+	// Notification must be safe for concurrent use by multiple goroutines.
+	Notify(*Response, string, interface{}) error
+
 	// Close is called when client/server finished with the connection.
 	Close() error
 }
 
 // Request is a header written before every RPC call.
 type Request struct {
-	Seq    uint64 // sequence number chosen by client
+	Seq    *uint64 // sequence number chosen by client
 	Method string
 }
 
 // Response is a header written before every RPC return.
 type Response struct {
-	Seq   uint64 // echoes that of the request
-	Error string // error, if any.
+	Seq   *uint64 // echoes that of the request
+	Error string  // error, if any.
 }
 
 type gobCodec struct {
@@ -54,10 +57,12 @@ type gobCodec struct {
 }
 
 type message struct {
-	Seq    uint64
+	Seq    *uint64
 	Method string
 	Error  string
 }
+
+type NotificationReply struct{}
 
 func newGobCodec(conn io.ReadWriteCloser) *gobCodec {
 	buf := bufio.NewWriter(conn)
@@ -111,6 +116,10 @@ func (c *gobCodec) WriteResponse(r *Response, body interface{}) (err error) {
 		return
 	}
 	return c.encBuf.Flush()
+}
+
+func (c *gobCodec) Notify(r *Response, method string, body interface{}) (err error) {
+	return
 }
 
 func (c *gobCodec) Close() error {
