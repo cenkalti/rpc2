@@ -3,6 +3,7 @@ package rpc2
 import (
 	"net"
 	"testing"
+	"time"
 )
 
 const (
@@ -35,6 +36,11 @@ func TestTCPGOB(t *testing.T) {
 
 		return nil
 	})
+	number := make(chan int, 1)
+	srv.Handle("set", func(client *Client, i int, _ *struct{}) error {
+		number <- i
+		return nil
+	})
 	go srv.Accept(lis)
 
 	conn, err := net.Dial(network, addr)
@@ -50,14 +56,28 @@ func TestTCPGOB(t *testing.T) {
 	go clt.Run()
 	defer clt.Close()
 
+	// Test Call.
 	var rep Reply
 	err = clt.Call("add", Args{1, 2}, &rep)
 	if err != nil {
 		t.Fatal(err)
 	}
-
 	if rep != 3 {
 		t.Fatalf("not expected: %d", rep)
+	}
+
+	// Test notification.
+	err = clt.Notify("set", 6)
+	if err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case i := <-number:
+		if i != 6 {
+			t.Fatalf("unexpected number: %d", i)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("did not get notification")
 	}
 
 	// Test undefined method.

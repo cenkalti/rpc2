@@ -44,7 +44,7 @@ func NewJSONCodec(conn io.ReadWriteCloser) rpc2.Codec {
 type clientRequest struct {
 	Method string         `json:"method"`
 	Params [1]interface{} `json:"params"`
-	Id     uint64         `json:"id"`
+	Id     *uint64        `json:"id"`
 }
 type serverRequest struct {
 	Method string           `json:"method"`
@@ -88,12 +88,16 @@ func (c *jsonCodec) ReadHeader(req *rpc2.Request, resp *rpc2.Response) error {
 		// JSON request id can be any JSON value;
 		// RPC package expects uint64.  Translate to
 		// internal uint64 and save JSON on the side.
-		c.mutext.Lock()
-		c.seq++
-		c.pending[c.seq] = c.serverRequest.Id
-		c.serverRequest.Id = nil
-		req.Seq = c.seq
-		c.mutext.Unlock()
+		if c.serverRequest.Id == nil {
+			// Notification
+		} else {
+			c.mutext.Lock()
+			c.seq++
+			c.pending[c.seq] = c.serverRequest.Id
+			c.serverRequest.Id = nil
+			req.Seq = c.seq
+			c.mutext.Unlock()
+		}
 
 		return nil
 
@@ -153,7 +157,13 @@ func (c *jsonCodec) ReadResponseBody(x interface{}) error {
 func (c *jsonCodec) WriteRequest(r *rpc2.Request, param interface{}) error {
 	c.clientRequest.Method = r.Method
 	c.clientRequest.Params[0] = param
-	c.clientRequest.Id = r.Seq
+	if r.Seq == 0 {
+		// Notification
+		c.clientRequest.Id = nil
+	} else {
+		seq := r.Seq
+		c.clientRequest.Id = &seq
+	}
 	return c.enc.Encode(&c.clientRequest)
 }
 

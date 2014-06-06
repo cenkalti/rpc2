@@ -42,6 +42,7 @@ func NewClientWithCodec(codec Codec) *Client {
 		pending:    make(map[uint64]*Call),
 		handlers:   make(map[string]*handler),
 		disconnect: make(chan struct{}),
+		seq:        1, // 0 means notification.
 	}
 }
 
@@ -144,8 +145,14 @@ func (c *Client) readRequest(req *Request) error {
 	replyv := reflect.New(method.replyType.Elem())
 
 	// Call handler function.
-	go func(req Request) error {
+	go func(req Request) {
 		returnValues := method.fn.Call([]reflect.Value{reflect.ValueOf(c), argv, replyv})
+
+		// Do not send response if request is a notification.
+		if req.Seq == 0 {
+			return
+		}
+
 		// The return value for the method is an error.
 		errInter := returnValues[0].Interface()
 		errmsg := ""
@@ -156,7 +163,7 @@ func (c *Client) readRequest(req *Request) error {
 			Seq:   req.Seq,
 			Error: errmsg,
 		}
-		return c.codec.WriteResponse(resp, replyv.Interface())
+		c.codec.WriteResponse(resp, replyv.Interface())
 	}(*req)
 
 	return nil
@@ -306,4 +313,17 @@ func (c *Client) send(call *Call) {
 			call.done()
 		}
 	}
+}
+
+func (c *Client) Notify(method string, args interface{}) error {
+	c.sending.Lock()
+	defer c.sending.Unlock()
+
+	if c.shutdown || c.closing {
+		return ErrShutdown
+	}
+
+	c.request.Seq = 0
+	c.request.Method = method
+	return c.codec.WriteRequest(&c.request, args)
 }
