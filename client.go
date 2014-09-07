@@ -1,3 +1,4 @@
+// Package rpc2 provides bi-directional RPC client and server similar to net/rpc.
 package rpc2
 
 import (
