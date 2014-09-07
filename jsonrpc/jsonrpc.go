@@ -78,7 +78,7 @@ func (c *jsonCodec) ReadHeader(req *rpc2.Request, resp *rpc2.Response) error {
 	}
 
 	if c.msg.Method != "" {
-		// server request
+		// We are server and read a request from client.
 		c.serverRequest.Id = c.msg.Id
 		c.serverRequest.Method = c.msg.Method
 		c.serverRequest.Params = c.msg.Params
@@ -102,7 +102,7 @@ func (c *jsonCodec) ReadHeader(req *rpc2.Request, resp *rpc2.Response) error {
 		return nil
 
 	} else if c.msg.Result != nil {
-		// client response
+		// We are client and read a response from server.
 		// c.clientResponse.Id = msg.Id // TODO fix
 		err := json.Unmarshal([]byte(*c.msg.Id), &c.clientResponse.Id)
 		if err != nil {
