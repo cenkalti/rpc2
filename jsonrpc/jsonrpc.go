@@ -98,10 +98,7 @@ func (c *jsonCodec) ReadHeader(req *rpc2.Request, resp *rpc2.Response) error {
 			req.Seq = c.seq
 			c.mutext.Unlock()
 		}
-
-		return nil
-
-	} else if c.msg.Result != nil {
+	} else {
 		// We are client and read a response from server.
 		err := json.Unmarshal(*c.msg.Id, &c.clientResponse.Id)
 		if err != nil {
@@ -122,9 +119,8 @@ func (c *jsonCodec) ReadHeader(req *rpc2.Request, resp *rpc2.Response) error {
 			}
 			resp.Error = x
 		}
-		return nil
 	}
-	return errors.New("cannot determine message type")
+	return nil
 }
 
 var errMissingParams = errors.New("jsonrpc: request body missing params")
