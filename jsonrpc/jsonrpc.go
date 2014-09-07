@@ -42,9 +42,9 @@ func NewJSONCodec(conn io.ReadWriteCloser) rpc2.Codec {
 }
 
 type clientRequest struct {
-	Method string         `json:"method"`
-	Params [1]interface{} `json:"params"`
-	Id     *uint64        `json:"id"`
+	Method string        `json:"method"`
+	Params []interface{} `json:"params"`
+	Id     *uint64       `json:"id"`
 }
 type serverRequest struct {
 	Method string           `json:"method"`
@@ -132,14 +132,14 @@ func (c *jsonCodec) ReadRequestBody(x interface{}) error {
 	if c.serverRequest.Params == nil {
 		return errMissingParams
 	}
-	// JSON params is array value.
-	// RPC params is struct.
-	// Unmarshal into array containing struct for now.
-	// Should think about making RPC more general.
-	var params [1]interface{}
-	params[0] = x
-	return json.Unmarshal(*c.serverRequest.Params, &params)
-
+	var params *[]interface{}
+	switch x := x.(type) {
+	case *[]interface{}:
+		params = x
+	default:
+		params = &[]interface{}{x}
+	}
+	return json.Unmarshal(*c.serverRequest.Params, params)
 }
 
 func (c *jsonCodec) ReadResponseBody(x interface{}) error {
@@ -151,7 +151,12 @@ func (c *jsonCodec) ReadResponseBody(x interface{}) error {
 
 func (c *jsonCodec) WriteRequest(r *rpc2.Request, param interface{}) error {
 	c.clientRequest.Method = r.Method
-	c.clientRequest.Params[0] = param
+	switch param := param.(type) {
+	case []interface{}:
+		c.clientRequest.Params = param
+	default:
+		c.clientRequest.Params = []interface{}{param}
+	}
 	if r.Seq == 0 {
 		// Notification
 		c.clientRequest.Id = nil

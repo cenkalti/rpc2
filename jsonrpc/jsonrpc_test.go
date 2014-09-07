@@ -37,6 +37,10 @@ func TestJSONRPC(t *testing.T) {
 
 		return nil
 	})
+	srv.Handle("addPos", func(client *rpc2.Client, args []interface{}, reply *Reply) error {
+		*reply = Reply(args[0].(float64) + args[1].(float64))
+		return nil
+	})
 	number := make(chan int, 1)
 	srv.Handle("set", func(client *rpc2.Client, i int, _ *struct{}) error {
 		number <- i
@@ -91,5 +95,15 @@ func TestJSONRPC(t *testing.T) {
 	err = clt.Call("foo", 1, &rep)
 	if err.Error() != "rpc2: can't find method foo" {
 		t.Fatal(err)
+	}
+
+	// Test Positional arguments.
+	var rep2 Reply
+	err = clt.Call("addPos", []interface{}{1, 2}, &rep2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if rep2 != 3 {
+		t.Fatalf("not expected: %d", rep2)
 	}
 }
