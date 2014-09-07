@@ -169,7 +169,6 @@ func (c *jsonCodec) WriteRequest(r *rpc2.Request, param interface{}) error {
 var null = json.RawMessage([]byte("null"))
 
 func (c *jsonCodec) WriteResponse(r *rpc2.Response, x interface{}) error {
-	var resp serverResponse
 	c.mutext.Lock()
 	b, ok := c.pending[r.Seq]
 	if !ok {
@@ -183,10 +182,9 @@ func (c *jsonCodec) WriteResponse(r *rpc2.Response, x interface{}) error {
 		// Invalid request so no id.  Use JSON null.
 		b = &null
 	}
-	resp.Id = b
-	resp.Result = x
+	resp := serverResponse{Id: b}
 	if r.Error == "" {
-		resp.Error = nil
+		resp.Result = x
 	} else {
 		resp.Error = r.Error
 	}
