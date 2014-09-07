@@ -103,8 +103,7 @@ func (c *jsonCodec) ReadHeader(req *rpc2.Request, resp *rpc2.Response) error {
 
 	} else if c.msg.Result != nil {
 		// We are client and read a response from server.
-		// c.clientResponse.Id = msg.Id // TODO fix
-		err := json.Unmarshal([]byte(*c.msg.Id), &c.clientResponse.Id)
+		err := json.Unmarshal(*c.msg.Id, &c.clientResponse.Id)
 		if err != nil {
 			return err
 		}
