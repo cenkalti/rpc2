@@ -191,7 +191,6 @@ func (c *jsonCodec) WriteResponse(r *rpc2.Response, x interface{}) error {
 		resp.Error = r.Error
 	}
 	return c.enc.Encode(resp)
-
 }
 
 func (c *jsonCodec) Close() error {
