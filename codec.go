@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"encoding/gob"
 	"io"
+	"sync"
 )
 
 // A Codec implements reading and writing of RPC requests and responses.
@@ -51,6 +52,7 @@ type gobCodec struct {
 	dec    *gob.Decoder
 	enc    *gob.Encoder
 	encBuf *bufio.Writer
+	mutex  sync.Mutex
 }
 
 type message struct {
@@ -94,6 +96,8 @@ func (c *gobCodec) ReadResponseBody(body interface{}) error {
 }
 
 func (c *gobCodec) WriteRequest(r *Request, body interface{}) (err error) {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
 	if err = c.enc.Encode(r); err != nil {
 		return
 	}
@@ -104,6 +108,8 @@ func (c *gobCodec) WriteRequest(r *Request, body interface{}) (err error) {
 }
 
 func (c *gobCodec) WriteResponse(r *Response, body interface{}) (err error) {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
 	if err = c.enc.Encode(r); err != nil {
 		return
 	}
