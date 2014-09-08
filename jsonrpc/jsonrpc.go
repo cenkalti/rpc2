@@ -41,34 +41,37 @@ func NewJSONCodec(conn io.ReadWriteCloser) rpc2.Codec {
 	}
 }
 
-type clientRequest struct {
-	Method string        `json:"method"`
-	Params []interface{} `json:"params"`
-	Id     *uint64       `json:"id"`
-}
-type serverRequest struct {
-	Method string           `json:"method"`
-	Params *json.RawMessage `json:"params"`
-	Id     *json.RawMessage `json:"id"`
-}
-
-type clientResponse struct {
-	Id     uint64           `json:"id"`
-	Result *json.RawMessage `json:"result"`
-	Error  interface{}      `json:"error"`
-}
-type serverResponse struct {
-	Id     *json.RawMessage `json:"id"`
-	Result interface{}      `json:"result"`
-	Error  interface{}      `json:"error"`
-}
-
+// serverRequest and clientResponse combined
 type message struct {
 	Method string           `json:"method"`
 	Params *json.RawMessage `json:"params"`
 	Id     *json.RawMessage `json:"id"`
 	Result *json.RawMessage `json:"result"`
 	Error  interface{}      `json:"error"`
+}
+
+// Unmarshal to
+type serverRequest struct {
+	Method string           `json:"method"`
+	Params *json.RawMessage `json:"params"`
+	Id     *json.RawMessage `json:"id"`
+}
+type clientResponse struct {
+	Id     uint64           `json:"id"`
+	Result *json.RawMessage `json:"result"`
+	Error  interface{}      `json:"error"`
+}
+
+// to Marshal
+type serverResponse struct {
+	Id     *json.RawMessage `json:"id"`
+	Result interface{}      `json:"result"`
+	Error  interface{}      `json:"error"`
+}
+type clientRequest struct {
+	Method string        `json:"method"`
+	Params []interface{} `json:"params"`
+	Id     *uint64       `json:"id"`
 }
 
 func (c *jsonCodec) ReadHeader(req *rpc2.Request, resp *rpc2.Response) error {
