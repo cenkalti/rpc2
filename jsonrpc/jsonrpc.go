@@ -27,7 +27,7 @@ type jsonCodec struct {
 	// but save the original request ID in the pending map.
 	// When rpc responds, we use the sequence number in
 	// the response to find the original request ID.
-	mutext  sync.Mutex // protects seq, pending
+	mutex   sync.Mutex // protects seq, pending
 	pending map[uint64]*json.RawMessage
 	seq     uint64
 }
@@ -78,7 +78,7 @@ func (c *jsonCodec) ReadHeader(req *rpc2.Request, resp *rpc2.Response) error {
 	}
 
 	if c.msg.Method != "" {
-		// We are server and read a request from client.
+		// request comes to server
 		c.serverRequest.Id = c.msg.Id
 		c.serverRequest.Method = c.msg.Method
 		c.serverRequest.Params = c.msg.Params
@@ -91,15 +91,15 @@ func (c *jsonCodec) ReadHeader(req *rpc2.Request, resp *rpc2.Response) error {
 		if c.serverRequest.Id == nil {
 			// Notification
 		} else {
-			c.mutext.Lock()
+			c.mutex.Lock()
 			c.seq++
 			c.pending[c.seq] = c.serverRequest.Id
 			c.serverRequest.Id = nil
 			req.Seq = c.seq
-			c.mutext.Unlock()
+			c.mutex.Unlock()
 		}
 	} else {
-		// We are client and read a response from server.
+		// response comes to client
 		err := json.Unmarshal(*c.msg.Id, &c.clientResponse.Id)
 		if err != nil {
 			return err
@@ -170,14 +170,14 @@ func (c *jsonCodec) WriteRequest(r *rpc2.Request, param interface{}) error {
 var null = json.RawMessage([]byte("null"))
 
 func (c *jsonCodec) WriteResponse(r *rpc2.Response, x interface{}) error {
-	c.mutext.Lock()
+	c.mutex.Lock()
 	b, ok := c.pending[r.Seq]
 	if !ok {
-		c.mutext.Unlock()
+		c.mutex.Unlock()
 		return errors.New("invalid sequence number in response")
 	}
 	delete(c.pending, r.Seq)
-	c.mutext.Unlock()
+	c.mutex.Unlock()
 
 	if b == nil {
 		// Invalid request so no id.  Use JSON null.
