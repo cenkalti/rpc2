@@ -19,7 +19,6 @@ type jsonCodec struct {
 	// temporary work space
 	msg            message
 	serverRequest  serverRequest
-	clientRequest  clientRequest
 	clientResponse clientResponse
 
 	// JSON-RPC clients can use arbitrary json values as request IDs.
@@ -151,21 +150,21 @@ func (c *jsonCodec) ReadResponseBody(x interface{}) error {
 }
 
 func (c *jsonCodec) WriteRequest(r *rpc2.Request, param interface{}) error {
-	c.clientRequest.Method = r.Method
+	req := &clientRequest{Method: r.Method}
 	switch param := param.(type) {
 	case []interface{}:
-		c.clientRequest.Params = param
+		req.Params = param
 	default:
-		c.clientRequest.Params = []interface{}{param}
+		req.Params = []interface{}{param}
 	}
 	if r.Seq == 0 {
 		// Notification
-		c.clientRequest.Id = nil
+		req.Id = nil
 	} else {
 		seq := r.Seq
-		c.clientRequest.Id = &seq
+		req.Id = &seq
 	}
-	return c.enc.Encode(&c.clientRequest)
+	return c.enc.Encode(req)
 }
 
 var null = json.RawMessage([]byte("null"))
