@@ -37,8 +37,8 @@ func TestJSONRPC(t *testing.T) {
 
 		return nil
 	})
-	srv.Handle("addPos", func(client *rpc2.Client, args []interface{}, reply *Reply) error {
-		*reply = Reply(args[0].(float64) + args[1].(float64))
+	srv.Handle("addPos", func(client *rpc2.Client, args []interface{}, result *float64) error {
+		*result = args[0].(float64) + args[1].(float64)
 		return nil
 	})
 	number := make(chan int, 1)
@@ -98,12 +98,12 @@ func TestJSONRPC(t *testing.T) {
 	}
 
 	// Test Positional arguments.
-	var rep2 Reply
-	err = clt.Call("addPos", []interface{}{1, 2}, &rep2)
+	var result float64
+	err = clt.Call("addPos", []interface{}{1, 2}, &result)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if rep2 != 3 {
-		t.Fatalf("not expected: %d", rep2)
+	if result != 3 {
+		t.Fatalf("not expected: %d", result)
 	}
 }

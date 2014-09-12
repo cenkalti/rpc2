@@ -1,4 +1,17 @@
 // Package jsonrpc implements a JSON-RPC ClientCodec and ServerCodec for the rpc2 package.
+//
+// Beside struct types, JSONCodec allows using positional arguments.
+// Use []interface{} as the type of argument when sending and receiving methods.
+//
+// Positional arguments example:
+// 	server.Handle("add", func(client *rpc2.Client, args []interface{}, result *float64) error {
+// 		*result = args[0].(float64) + args[1].(float64)
+// 		return nil
+// 	})
+//
+//	var result float64
+// 	client.Call("add", []interface{}{1, 2}, &result)
+//
 package jsonrpc
 
 import (
@@ -32,6 +45,7 @@ type jsonCodec struct {
 	seq     uint64
 }
 
+// NewJSONCodec returns a new rpc2.Codec using JSON-RPC on conn.
 func NewJSONCodec(conn io.ReadWriteCloser) rpc2.Codec {
 	return &jsonCodec{
 		dec:     json.NewDecoder(conn),
