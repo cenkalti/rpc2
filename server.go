@@ -158,12 +158,20 @@ func (s *Server) ServeConn(conn io.ReadWriteCloser) {
 // ServeCodec is like ServeConn but uses the specified codec to
 // decode requests and encode responses.
 func (s *Server) ServeCodec(codec Codec) {
+	s.ServeCodecWithState(codec, nil)
+}
+
+// ServeCodec is like ServeCodec but also gives the ability to
+// associate a state variable with the client that persists
+// across RPC calls.
+func (s *Server) ServeCodecWithState(codec Codec, state interface{}) {
 	defer codec.Close()
 
 	// Client also handles the incoming connections.
 	c := NewClientWithCodec(codec)
 	c.server = true
 	c.handlers = s.handlers
+	c.state = state
 
 	s.eventHub.Publish(connectionEvent{c})
 	c.Run()
