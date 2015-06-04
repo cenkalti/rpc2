@@ -25,7 +25,7 @@ type Client struct {
 	codec      Codec
 	handlers   map[string]*handler
 	disconnect chan struct{}
-	state      interface{} // additional information to associate with client
+	State      *State // additional information to associate with client
 }
 
 // NewClient returns a new Client to handle requests to the
@@ -328,13 +328,4 @@ func (c *Client) Notify(method string, args interface{}) error {
 	c.request.Seq = 0
 	c.request.Method = method
 	return c.codec.WriteRequest(&c.request, args)
-}
-
-// State returns the state associated with the client. It is useful for storing
-// any additional information that might be relevant to the request from the
-// client or for storing information that must persist across RPC calls, like
-// authentication. This can be assigned while serving the client using
-// ServeCodecWithState.
-func (c *Client) State() interface{} {
-	return c.state
 }
