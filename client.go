@@ -25,6 +25,7 @@ type Client struct {
 	codec      Codec
 	handlers   map[string]*handler
 	disconnect chan struct{}
+	State      *State // additional information to associate with client
 }
 
 // NewClient returns a new Client to handle requests to the
