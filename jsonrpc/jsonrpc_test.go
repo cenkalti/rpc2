@@ -1,7 +1,7 @@
 package jsonrpc
 
 import (
-	"github.com/cenk/rpc2"
+	"github.com/cenkalti/rpc2"
 	"net"
 	"testing"
 	"time"
