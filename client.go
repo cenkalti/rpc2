@@ -7,6 +7,7 @@ import (
 	"log"
 	"reflect"
 	"sync"
+	"fmt"
 )
 
 // Client represents an RPC Client.
@@ -147,26 +148,24 @@ func (c *Client) readRequest(req *Request) error {
 	replyv := reflect.New(method.replyType.Elem())
 
 	// Call handler function.
-	go func(req Request) {
-		returnValues := method.fn.Call([]reflect.Value{reflect.ValueOf(c), argv, replyv})
+	returnValues := method.fn.Call([]reflect.Value{reflect.ValueOf(c), argv, replyv})
+	fmt.Println("readRequest handler called")
+	// Do not send response if request is a notification.
+	if req.Seq == 0 {
+		return nil
+	}
 
-		// Do not send response if request is a notification.
-		if req.Seq == 0 {
-			return
-		}
-
-		// The return value for the method is an error.
-		errInter := returnValues[0].Interface()
-		errmsg := ""
-		if errInter != nil {
-			errmsg = errInter.(error).Error()
-		}
-		resp := &Response{
-			Seq:   req.Seq,
-			Error: errmsg,
-		}
-		c.codec.WriteResponse(resp, replyv.Interface())
-	}(*req)
+	// The return value for the method is an error.
+	errInter := returnValues[0].Interface()
+	errmsg := ""
+	if errInter != nil {
+		errmsg = errInter.(error).Error()
+	}
+	resp := &Response{
+		Seq:   req.Seq,
+		Error: errmsg,
+	}
+	c.codec.WriteResponse(resp, replyv.Interface())
 
 	return nil
 }
