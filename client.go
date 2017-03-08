@@ -26,6 +26,7 @@ type Client struct {
 	handlers   map[string]*handler
 	disconnect chan struct{}
 	State      *State // additional information to associate with client
+	blockReq   bool // whether to block request handling
 }
 
 // NewClient returns a new Client to handle requests to the
@@ -48,6 +49,9 @@ func NewClientWithCodec(codec Codec) *Client {
 	}
 }
 
+func (c *Client) SetBlockReq(blockReq bool) {
+	c.blockReq = true
+}
 // Run the client's read loop.
 // You must run this method before calling any methods on the server.
 func (c *Client) Run() {
@@ -116,6 +120,30 @@ func (c *Client) readLoop() {
 	close(c.disconnect)
 }
 
+func (c *Client) handleRequest(req Request, method *handler, argv reflect.Value) {
+	// Invoke the method, providing a new value for the reply.
+	replyv := reflect.New(method.replyType.Elem())
+
+	returnValues := method.fn.Call([]reflect.Value{reflect.ValueOf(c), argv, replyv})
+
+	// Do not send response if request is a notification.
+	if req.Seq == 0 {
+		return
+	}
+
+	// The return value for the method is an error.
+	errInter := returnValues[0].Interface()
+	errmsg := ""
+	if errInter != nil {
+		errmsg = errInter.(error).Error()
+	}
+	resp := &Response{
+		Seq:   req.Seq,
+		Error: errmsg,
+	}
+	c.codec.WriteResponse(resp, replyv.Interface())
+}
+
 func (c *Client) readRequest(req *Request) error {
 	method, ok := c.handlers[req.Method]
 	if !ok {
@@ -143,30 +171,11 @@ func (c *Client) readRequest(req *Request) error {
 		argv = argv.Elem()
 	}
 
-	// Invoke the method, providing a new value for the reply.
-	replyv := reflect.New(method.replyType.Elem())
-
-	// Call handler function.
-	go func(req Request) {
-		returnValues := method.fn.Call([]reflect.Value{reflect.ValueOf(c), argv, replyv})
-
-		// Do not send response if request is a notification.
-		if req.Seq == 0 {
-			return
-		}
-
-		// The return value for the method is an error.
-		errInter := returnValues[0].Interface()
-		errmsg := ""
-		if errInter != nil {
-			errmsg = errInter.(error).Error()
-		}
-		resp := &Response{
-			Seq:   req.Seq,
-			Error: errmsg,
-		}
-		c.codec.WriteResponse(resp, replyv.Interface())
-	}(*req)
+	if c.blockReq {
+		c.handleRequest(*req, method, argv)
+	} else {
+		go c.handleRequest(*req, method, argv)
+	}
 
 	return nil
 }
