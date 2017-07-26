@@ -21,6 +21,7 @@ const (
 	clientDisconnected
 )
 
+// Server responds to RPC requests made by Client.
 type Server struct {
 	handlers map[string]*handler
 	eventHub *hub.Hub
@@ -43,6 +44,7 @@ type disconnectionEvent struct {
 func (connectionEvent) Kind() hub.Kind    { return clientConnected }
 func (disconnectionEvent) Kind() hub.Kind { return clientDisconnected }
 
+// NewServer returns a new Server.
 func NewServer() *Server {
 	return &Server{
 		handlers: make(map[string]*handler),
@@ -161,9 +163,8 @@ func (s *Server) ServeCodec(codec Codec) {
 	s.ServeCodecWithState(codec, NewState())
 }
 
-// ServeCodec is like ServeCodec but also gives the ability to
-// associate a state variable with the client that persists
-// across RPC calls.
+// ServeCodecWithState is like ServeCodec but also gives the ability to
+// associate a state variable with the client that persists across RPC calls.
 func (s *Server) ServeCodecWithState(codec Codec, state *State) {
 	defer codec.Close()
 

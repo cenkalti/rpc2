@@ -286,6 +286,7 @@ func (e ServerError) Error() string {
 	return string(e)
 }
 
+// ErrShutdown is returned when the connection is closing or closed.
 var ErrShutdown = errors.New("connection is shut down")
 
 // Call represents an active RPC.
@@ -330,6 +331,7 @@ func (c *Client) send(call *Call) {
 	}
 }
 
+// Notify sends a request to the receiver but does not wait for a return value.
 func (c *Client) Notify(method string, args interface{}) error {
 	c.sending.Lock()
 	defer c.sending.Unlock()
