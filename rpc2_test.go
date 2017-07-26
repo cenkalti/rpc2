@@ -81,7 +81,7 @@ func TestTCPGOB(t *testing.T) {
 	}
 
 	// Test blocked request
-	clt.SetBlockReq(true)
+	clt.SetBlocking(true)
 	err = clt.Call("add", Args{1, 2}, &rep)
 	if err != nil {
 		t.Fatal(err)

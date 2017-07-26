@@ -26,7 +26,7 @@ type Client struct {
 	handlers   map[string]*handler
 	disconnect chan struct{}
 	State      *State // additional information to associate with client
-	blockReq   bool // whether to block request handling
+	blocking   bool   // whether to block request handling
 }
 
 // NewClient returns a new Client to handle requests to the
@@ -49,9 +49,13 @@ func NewClientWithCodec(codec Codec) *Client {
 	}
 }
 
-func (c *Client) SetBlockReq(blockReq bool) {
-	c.blockReq = true
+// SetBlocking puts the client in blocking mode.
+// In blocking mode, received requests are processes synchronously.
+// If you have methods that may take a long time, other subsequent reqeusts may time out.
+func (c *Client) SetBlocking(blocking bool) {
+	c.blocking = true
 }
+
 // Run the client's read loop.
 // You must run this method before calling any methods on the server.
 func (c *Client) Run() {
@@ -171,7 +175,7 @@ func (c *Client) readRequest(req *Request) error {
 		argv = argv.Elem()
 	}
 
-	if c.blockReq {
+	if c.blocking {
 		c.handleRequest(*req, method, argv)
 	} else {
 		go c.handleRequest(*req, method, argv)
