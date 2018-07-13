@@ -104,6 +104,6 @@ func TestJSONRPC(t *testing.T) {
 		t.Fatal(err)
 	}
 	if result != 3 {
-		t.Fatalf("not expected: %d", result)
+		t.Fatalf("not expected: %f", result)
 	}
 }
