@@ -34,7 +34,7 @@ type Client struct {
 // It adds a buffer to the write side of the connection so
 // the header and payload are sent as a unit.
 func NewClient(conn io.ReadWriteCloser) *Client {
-	return NewClientWithCodec(newGobCodec(conn))
+	return NewClientWithCodec(NewGobCodec(conn))
 }
 
 // NewClientWithCodec is like NewClient but uses the specified
