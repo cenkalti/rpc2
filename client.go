@@ -91,12 +91,12 @@ func (c *Client) readLoop() {
 		if req.Method != "" {
 			// request comes to server
 			if err = c.readRequest(&req); err != nil {
-				log.Println("rpc2: error reading request:", err.Error())
+				debugln("rpc2: error reading request:", err.Error())
 			}
 		} else {
 			// response comes to client
 			if err = c.readResponse(&resp); err != nil {
-				log.Println("rpc2: error reading response:", err.Error())
+				debugln("rpc2: error reading response:", err.Error())
 			}
 		}
 	}
@@ -119,7 +119,7 @@ func (c *Client) readLoop() {
 	c.mutex.Unlock()
 	c.sending.Unlock()
 	if err != io.EOF && !closing && !c.server {
-		log.Println("rpc2: client protocol error:", err)
+		debugln("rpc2: client protocol error:", err)
 	}
 	close(c.disconnect)
 }
@@ -274,7 +274,7 @@ func (call *Call) done() {
 	default:
 		// We don't want to block here.  It is the caller's responsibility to make
 		// sure the channel has enough buffer space. See comment in Go().
-		log.Println("rpc2: discarding Call reply due to insufficient Done chan capacity")
+		debugln("rpc2: discarding Call reply due to insufficient Done chan capacity")
 	}
 }
 
