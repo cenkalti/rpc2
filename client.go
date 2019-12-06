@@ -122,6 +122,9 @@ func (c *Client) readLoop() {
 		debugln("rpc2: client protocol error:", err)
 	}
 	close(c.disconnect)
+	if !closing {
+		c.codec.Close()
+	}
 }
 
 func (c *Client) handleRequest(req Request, method *handler, argv reflect.Value) {
