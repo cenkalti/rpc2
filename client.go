@@ -148,7 +148,9 @@ func (c *Client) handleRequest(req Request, method *handler, argv reflect.Value)
 		Seq:   req.Seq,
 		Error: errmsg,
 	}
-	c.codec.WriteResponse(resp, replyv.Interface())
+	if err := c.codec.WriteResponse(resp, replyv.Interface()); err != nil {
+		debugln("rpc2: error writing response:", err.Error())
+	}
 }
 
 func (c *Client) readRequest(req *Request) error {
@@ -224,7 +226,7 @@ func (c *Client) readResponse(resp *Response) error {
 		call.done()
 	}
 
-	return nil
+	return err
 }
 
 // Close waits for active calls to finish and closes the codec.
