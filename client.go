@@ -51,9 +51,9 @@ func NewClientWithCodec(codec Codec) *Client {
 
 // SetBlocking puts the client in blocking mode.
 // In blocking mode, received requests are processes synchronously.
-// If you have methods that may take a long time, other subsequent reqeusts may time out.
+// If you have methods that may take a long time, other subsequent requests may time out.
 func (c *Client) SetBlocking(blocking bool) {
-	c.blocking = true
+	c.blocking = blocking
 }
 
 // Run the client's read loop.
