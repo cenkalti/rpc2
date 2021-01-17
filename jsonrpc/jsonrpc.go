@@ -75,16 +75,16 @@ type serverRequest struct {
 type clientResponse struct {
 	Jsonrpc string           `json:"jsonrpc"`
 	Id      uint64           `json:"id"`
-	Result  *json.RawMessage `json:"result"`
-	Error   interface{}      `json:"error"`
+	Result  *json.RawMessage `json:"result,omitempty"`
+	Error   interface{}      `json:"error,omitempty"`
 }
 
 // to Marshal
 type serverResponse struct {
 	Jsonrpc string           `json:"jsonrpc"`
 	Id      *json.RawMessage `json:"id"`
-	Result  interface{}      `json:"result"`
-	Error   interface{}      `json:"error"`
+	Result  *interface{}     `json:"result,omitempty"`
+	Error   *interface{}     `json:"error,omitempty"`
 }
 type clientRequestArray struct {
 	Jsonrpc string        `json:"jsonrpc"`
@@ -228,9 +228,12 @@ func (c *jsonCodec) WriteResponse(r *rpc2.Response, x interface{}) error {
 	}
 	resp := serverResponse{Jsonrpc: "2.0", Id: b}
 	if r.Error == "" {
-		resp.Result = x
+		resp.Error = nil
+		resp.Result = &x
 	} else {
-		resp.Error = r.Error
+		var errIf interface{} = r.Error
+		resp.Error = &errIf
+		resp.Result = nil
 	}
 	return c.enc.Encode(resp)
 }
