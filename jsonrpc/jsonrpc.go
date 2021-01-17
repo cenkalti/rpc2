@@ -57,40 +57,35 @@ func NewJSONCodec(conn io.ReadWriteCloser) rpc2.Codec {
 
 // serverRequest and clientResponse combined
 type message struct {
-	Jsonrpc string           `json:"jsonrpc"`
-	Method  string           `json:"method"`
-	Params  *json.RawMessage `json:"params"`
-	Id      *json.RawMessage `json:"id"`
-	Result  *json.RawMessage `json:"result"`
-	Error   interface{}      `json:"error"`
+	Method string           `json:"method"`
+	Params *json.RawMessage `json:"params"`
+	Id     *json.RawMessage `json:"id"`
+	Result *json.RawMessage `json:"result"`
+	Error  interface{}      `json:"error"`
 }
 
 // Unmarshal to
 type serverRequest struct {
-	Jsonrpc string           `json:"jsonrpc"`
-	Method  string           `json:"method"`
-	Params  *json.RawMessage `json:"params"`
-	Id      *json.RawMessage `json:"id"`
+	Method string           `json:"method"`
+	Params *json.RawMessage `json:"params"`
+	Id     *json.RawMessage `json:"id"`
 }
 type clientResponse struct {
-	Jsonrpc string           `json:"jsonrpc"`
-	Id      uint64           `json:"id"`
-	Result  *json.RawMessage `json:"result"`
-	Error   interface{}      `json:"error"`
+	Id     uint64           `json:"id"`
+	Result *json.RawMessage `json:"result"`
+	Error  interface{}      `json:"error"`
 }
 
 // to Marshal
 type serverResponse struct {
-	Jsonrpc string           `json:"jsonrpc"`
-	Id      *json.RawMessage `json:"id"`
-	Result  interface{}      `json:"result"`
-	Error   interface{}      `json:"error"`
+	Id     *json.RawMessage `json:"id"`
+	Result interface{}      `json:"result"`
+	Error  interface{}      `json:"error"`
 }
 type clientRequest struct {
-	Jsonrpc string        `json:"jsonrpc"`
-	Method  string        `json:"method"`
-	Params  []interface{} `json:"params"`
-	Id      *uint64       `json:"id"`
+	Method string        `json:"method"`
+	Params []interface{} `json:"params"`
+	Id     *uint64       `json:"id"`
 }
 
 func (c *jsonCodec) ReadHeader(req *rpc2.Request, resp *rpc2.Response) error {
@@ -98,9 +93,9 @@ func (c *jsonCodec) ReadHeader(req *rpc2.Request, resp *rpc2.Response) error {
 	if err := c.dec.Decode(&c.msg); err != nil {
 		return err
 	}
+
 	if c.msg.Method != "" {
 		// request comes to server
-		c.serverRequest.Jsonrpc = c.msg.Jsonrpc
 		c.serverRequest.Id = c.msg.Id
 		c.serverRequest.Method = c.msg.Method
 		c.serverRequest.Params = c.msg.Params
@@ -126,7 +121,6 @@ func (c *jsonCodec) ReadHeader(req *rpc2.Request, resp *rpc2.Response) error {
 		if err != nil {
 			return err
 		}
-		c.clientResponse.Jsonrpc = "2.0"
 		c.clientResponse.Result = c.msg.Result
 		c.clientResponse.Error = c.msg.Error
 
@@ -173,7 +167,7 @@ func (c *jsonCodec) ReadResponseBody(x interface{}) error {
 }
 
 func (c *jsonCodec) WriteRequest(r *rpc2.Request, param interface{}) error {
-	req := &clientRequest{Jsonrpc: "2.0", Method: r.Method}
+	req := &clientRequest{Method: r.Method}
 	switch param := param.(type) {
 	case []interface{}:
 		req.Params = param
@@ -206,7 +200,7 @@ func (c *jsonCodec) WriteResponse(r *rpc2.Response, x interface{}) error {
 		// Invalid request so no id.  Use JSON null.
 		b = &null
 	}
-	resp := serverResponse{Jsonrpc: "2.0", Id: b}
+	resp := serverResponse{Id: b}
 	if r.Error == "" {
 		resp.Result = x
 	} else {
