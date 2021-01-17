@@ -86,11 +86,18 @@ type serverResponse struct {
 	Result  interface{}      `json:"result"`
 	Error   interface{}      `json:"error"`
 }
-type clientRequest struct {
+type clientRequestArray struct {
 	Jsonrpc string        `json:"jsonrpc"`
 	Method  string        `json:"method"`
 	Params  []interface{} `json:"params"`
 	Id      *uint64       `json:"id"`
+}
+
+type clientRequestNamed struct {
+	Jsonrpc string      `json:"jsonrpc"`
+	Method  string      `json:"method"`
+	Params  interface{} `json:"params"`
+	Id      *uint64     `json:"id"`
 }
 
 func (c *jsonCodec) ReadHeader(req *rpc2.Request, resp *rpc2.Response) error {
@@ -155,14 +162,18 @@ func (c *jsonCodec) ReadRequestBody(x interface{}) error {
 	if c.serverRequest.Params == nil {
 		return errMissingParams
 	}
-	var params *[]interface{}
+	var paramsArray *[]interface{}
+	var paramsNamed *interface{}
 	switch x := x.(type) {
 	case *[]interface{}:
-		params = x
+		paramsArray = x
 	default:
-		params = &[]interface{}{x}
+		paramsNamed = &x
 	}
-	return json.Unmarshal(*c.serverRequest.Params, params)
+	if paramsArray != nil {
+		return json.Unmarshal(*c.serverRequest.Params, paramsArray)
+	}
+	return json.Unmarshal(*c.serverRequest.Params, paramsNamed)
 }
 
 func (c *jsonCodec) ReadResponseBody(x interface{}) error {
@@ -173,21 +184,30 @@ func (c *jsonCodec) ReadResponseBody(x interface{}) error {
 }
 
 func (c *jsonCodec) WriteRequest(r *rpc2.Request, param interface{}) error {
-	req := &clientRequest{Jsonrpc: "2.0", Method: r.Method}
 	switch param := param.(type) {
 	case []interface{}:
+		req := &clientRequestArray{Jsonrpc: "2.0", Method: r.Method}
 		req.Params = param
+		if r.Seq == 0 {
+			// Notification
+			req.Id = nil
+		} else {
+			seq := r.Seq
+			req.Id = &seq
+		}
+		return c.enc.Encode(req)
 	default:
-		req.Params = []interface{}{param}
+		req := &clientRequestNamed{Jsonrpc: "2.0", Method: r.Method}
+		req.Params = param
+		if r.Seq == 0 {
+			// Notification
+			req.Id = nil
+		} else {
+			seq := r.Seq
+			req.Id = &seq
+		}
+		return c.enc.Encode(req)
 	}
-	if r.Seq == 0 {
-		// Notification
-		req.Id = nil
-	} else {
-		seq := r.Seq
-		req.Id = &seq
-	}
-	return c.enc.Encode(req)
 }
 
 var null = json.RawMessage([]byte("null"))
