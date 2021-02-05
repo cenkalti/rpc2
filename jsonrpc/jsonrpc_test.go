@@ -1,10 +1,13 @@
 package jsonrpc
 
 import (
-	"github.com/cenkalti/rpc2"
+	"encoding/json"
+	"fmt"
 	"net"
 	"testing"
 	"time"
+
+	"github.com/cenkalti/rpc2"
 )
 
 const (
@@ -39,6 +42,20 @@ func TestJSONRPC(t *testing.T) {
 	})
 	srv.Handle("addPos", func(client *rpc2.Client, args []interface{}, result *float64) error {
 		*result = args[0].(float64) + args[1].(float64)
+		return nil
+	})
+	srv.Handle("rawArgs", func(client *rpc2.Client, args []json.RawMessage, reply *[]string) error {
+		for _, p := range args {
+			var str string
+			json.Unmarshal(p, &str)
+			*reply = append(*reply, str)
+		}
+		return nil
+	})
+	srv.Handle("typedArgs", func(client *rpc2.Client, args []int, reply *[]string) error {
+		for _, p := range args {
+			*reply = append(*reply, fmt.Sprintf("%d", p))
+		}
 		return nil
 	})
 	number := make(chan int, 1)
@@ -105,5 +122,42 @@ func TestJSONRPC(t *testing.T) {
 	}
 	if result != 3 {
 		t.Fatalf("not expected: %f", result)
+	}
+
+	testArgs := func(expected, reply []string) error {
+		if len(reply) != len(expected) {
+			return fmt.Errorf("incorrect reply length: %d", len(reply))
+		}
+		for i := range expected {
+			if reply[i] != expected[i] {
+				return fmt.Errorf("not expected reply[%d]: %s", i, reply[i])
+			}
+		}
+		return nil
+	}
+
+	// Test raw arguments (partial unmarshal)
+	var reply []string
+	var expected []string = []string{"arg1", "arg2"}
+	rawArgs := json.RawMessage(`["arg1", "arg2"]`)
+	err = clt.Call("rawArgs", rawArgs, &reply)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err = testArgs(expected, reply); err != nil {
+		t.Fatal(err)
+	}
+
+	// Test typed arguments
+	reply = []string{}
+	expected = []string{"1", "2"}
+	typedArgs := []int{1, 2}
+	err = clt.Call("typedArgs", typedArgs, &reply)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = testArgs(expected, reply); err != nil {
+		t.Fatal(err)
 	}
 }
