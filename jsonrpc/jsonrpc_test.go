@@ -58,6 +58,14 @@ func TestJSONRPC(t *testing.T) {
 		}
 		return nil
 	})
+	srv.Handle("nilArgs", func(client *rpc2.Client, args []interface{}, reply *[]string) error {
+		for _, v := range args {
+			if v == nil {
+				*reply = append(*reply, "nil")
+			}
+		}
+		return nil
+	})
 	number := make(chan int, 1)
 	srv.Handle("set", func(client *rpc2.Client, i int, _ *struct{}) error {
 		number <- i
@@ -154,6 +162,17 @@ func TestJSONRPC(t *testing.T) {
 	expected = []string{"1", "2"}
 	typedArgs := []int{1, 2}
 	err = clt.Call("typedArgs", typedArgs, &reply)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = testArgs(expected, reply); err != nil {
+		t.Fatal(err)
+	}
+
+	// Test nil args
+	reply = []string{}
+	expected = []string{"nil"}
+	err = clt.Call("nilArgs", nil, &reply)
 	if err != nil {
 		t.Fatal(err)
 	}
