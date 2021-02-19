@@ -84,9 +84,9 @@ type serverResponse struct {
 	Error  interface{}      `json:"error"`
 }
 type clientRequest struct {
-	Method string        `json:"method"`
-	Params interface{}   `json:"params"`
-	Id     *uint64       `json:"id"`
+	Method string      `json:"method"`
+	Params interface{} `json:"params"`
+	Id     *uint64     `json:"id"`
 }
 
 func (c *jsonCodec) ReadHeader(req *rpc2.Request, resp *rpc2.Response) error {
@@ -178,7 +178,7 @@ func (c *jsonCodec) WriteRequest(r *rpc2.Request, param interface{}) error {
 	req := &clientRequest{Method: r.Method}
 
 	// Check if param is a slice of any kind
-	if reflect.TypeOf(param).Kind() == reflect.Slice {
+	if param != nil && reflect.TypeOf(param).Kind() == reflect.Slice {
 		// If it's a slice, leave as is
 		req.Params = param
 	} else {
