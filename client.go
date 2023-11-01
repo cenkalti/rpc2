@@ -247,6 +247,15 @@ func (c *Client) Close() error {
 // the same Call object.  If done is nil, Go will allocate a new channel.
 // If non-nil, done must be buffered or Go will deliberately crash.
 func (c *Client) Go(method string, args interface{}, reply interface{}, done chan *Call) *Call {
+	return c.GoWithConext(context.Background(), method, args, reply, done)
+}
+
+// Go invokes the function asynchronously with context. It returns the Call structure representing
+// the invocation. The done channel will signal when the call is complete by returning the same Call
+// object. If done is nil, Go will allocate a new channel. If non-nil, done must be buffered or Go
+// will deliberately crash.
+func (c *Client) GoWithConext(ctx context.Context, method string, args interface{}, reply interface{},
+	done chan *Call) *Call {
 	call := new(Call)
 	call.Method = method
 	call.Args = args
@@ -263,21 +272,16 @@ func (c *Client) Go(method string, args interface{}, reply interface{}, done cha
 		}
 	}
 	call.Done = done
-	c.send(call)
+	c.send(ctx, call)
 	return call
 }
 
 // CallWithContext invokes the named function, waits for it to complete, and
 // returns its error status, or an error from Context timeout.
 func (c *Client) CallWithContext(ctx context.Context, method string, args interface{}, reply interface{}) error {
-	call := c.Go(method, args, reply, make(chan *Call, 1))
-	select {
-	case <-call.Done:
-		return call.Error
-	case <-ctx.Done():
-		return ctx.Err()
-	}
-	return nil
+	call := c.GoWithConext(ctx, method, args, reply, make(chan *Call, 1))
+	<-call.Done
+	return call.Error
 }
 
 // Call invokes the named function, waits for it to complete, and returns its error status.
@@ -316,7 +320,7 @@ type Call struct {
 	Done   chan *Call  // Strobes when call is complete.
 }
 
-func (c *Client) send(call *Call) {
+func (c *Client) send(ctx context.Context, call *Call) {
 	c.sending.Lock()
 	defer c.sending.Unlock()
 
@@ -336,7 +340,18 @@ func (c *Client) send(call *Call) {
 	// Encode and send the request.
 	c.request.Seq = seq
 	c.request.Method = call.Method
-	err := c.codec.WriteRequest(&c.request, call.Args)
+	stop := make(chan struct{})
+	var err error
+	go func() {
+		defer close(stop)
+		err = c.codec.WriteRequest(&c.request, call.Args)
+	}()
+	select {
+	case <-stop:
+		break
+	case <-ctx.Done():
+		err = ctx.Err()
+	}
 	if err != nil {
 		c.mutex.Lock()
 		call = c.pending[seq]
