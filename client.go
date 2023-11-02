@@ -341,10 +341,11 @@ func (c *Client) send(ctx context.Context, call *Call) {
 	c.request.Seq = seq
 	c.request.Method = call.Method
 	stop := make(chan struct{})
+	callArgs := call.Args
 	var err error
 	go func() {
 		defer close(stop)
-		err = c.codec.WriteRequest(&c.request, call.Args)
+		err = c.codec.WriteRequest(&c.request, callArgs)
 	}()
 	select {
 	case <-stop:
