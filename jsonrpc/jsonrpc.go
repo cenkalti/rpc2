@@ -46,6 +46,8 @@ type jsonCodec struct {
 	seq     uint64
 }
 
+const RPCVersion = "2.0"
+
 // NewJSONCodec returns a new rpc2.Codec using JSON-RPC on conn.
 func NewJSONCodec(conn io.ReadWriteCloser) rpc2.Codec {
 	return &jsonCodec{
@@ -84,9 +86,10 @@ type serverResponse struct {
 	Error  interface{}      `json:"error"`
 }
 type clientRequest struct {
-	Method string      `json:"method"`
-	Params interface{} `json:"params"`
-	Id     *uint64     `json:"id"`
+	Version string      `json:"jsonrpc"`
+	Method  string      `json:"method"`
+	Params  interface{} `json:"params"`
+	Id      *uint64     `json:"id"`
 }
 
 func (c *jsonCodec) ReadHeader(req *rpc2.Request, resp *rpc2.Response) error {
@@ -175,7 +178,7 @@ func (c *jsonCodec) ReadResponseBody(x interface{}) error {
 }
 
 func (c *jsonCodec) WriteRequest(r *rpc2.Request, param interface{}) error {
-	req := &clientRequest{Method: r.Method}
+	req := &clientRequest{Method: r.Method, Version: RPCVersion}
 
 	// Check if param is a slice of any kind
 	if param != nil && reflect.TypeOf(param).Kind() == reflect.Slice {
