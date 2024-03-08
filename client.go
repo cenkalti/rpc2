@@ -75,7 +75,7 @@ func (c *Client) Handle(method string, handlerFunc interface{}) {
 }
 
 // readLoop reads messages from codec.
-// It reads a reqeust or a response to the previous request.
+// It reads a request or a response to the previous request.
 // If the message is request, calls the handler function.
 // If the message is response, sends the reply to the associated call.
 func (c *Client) readLoop() {
@@ -140,14 +140,26 @@ func (c *Client) handleRequest(req Request, method *handler, argv reflect.Value)
 	}
 
 	// The return value for the method is an error.
+	var returnError error
 	errInter := returnValues[0].Interface()
-	errmsg := ""
 	if errInter != nil {
-		errmsg = errInter.(error).Error()
+		returnError = errInter.(error)
 	}
-	resp := &Response{
-		Seq:   req.Seq,
-		Error: errmsg,
+	var resp *Response
+	if c.codec.IsV2() {
+		resp = &Response{
+			Seq:   req.Seq,
+			Error: returnError,
+		}
+	} else {
+		errMsg := ""
+		if returnError != nil {
+			errMsg = returnError.Error()
+		}
+		resp = &Response{
+			Seq:   req.Seq,
+			Error: errMsg,
+		}
 	}
 	if err := c.codec.WriteResponse(resp, replyv.Interface()); err != nil {
 		debugln("rpc2: error writing response:", err.Error())
@@ -157,9 +169,21 @@ func (c *Client) handleRequest(req Request, method *handler, argv reflect.Value)
 func (c *Client) readRequest(req *Request) error {
 	method, ok := c.handlers[req.Method]
 	if !ok {
-		resp := &Response{
-			Seq:   req.Seq,
-			Error: "rpc2: can't find method " + req.Method,
+		var resp *Response
+		if c.codec.IsV2() {
+			resp = &Response{
+				Seq: req.Seq,
+				Error: &JsonRpcError{
+					Code:    0,
+					Message: "rpc2: can't find method " + req.Method,
+					Data:    nil,
+				},
+			}
+		} else {
+			resp = &Response{
+				Seq:   req.Seq,
+				Error: "rpc2: can't find method " + req.Method,
+			}
 		}
 		return c.codec.WriteResponse(resp, resp)
 	}
@@ -209,20 +233,35 @@ func (c *Client) readResponse(resp *Response) error {
 		if err != nil {
 			err = errors.New("reading error body: " + err.Error())
 		}
-	case resp.Error != "":
+	case resp.Error != nil:
 		// We've got an error response. Give this to the request;
 		// any subsequent requests will get the ReadResponseBody
 		// error if there is one.
-		call.Error = ServerError(resp.Error)
-		err = c.codec.ReadResponseBody(nil)
+		stringError, isString := resp.Error.(string)
+		if isString && stringError != "" {
+			call.Error = ServerError(stringError)
+		}
+		errorObject, isObject := resp.Error.(*JsonRpcError)
+		if isObject {
+			call.Error = ServerError(errorObject.Message)
+		}
+		if call.Error == nil {
+			err = c.codec.ReadResponseBody(call.Reply)
+		} else {
+			err = c.codec.ReadResponseBody(nil)
+		}
 		if err != nil {
-			err = errors.New("reading error body: " + err.Error())
+			if call.Error != nil {
+				err = errors.New("reading error body: " + err.Error())
+			} else {
+				err = errors.New("reading body: " + err.Error())
+			}
 		}
 		call.done()
 	default:
 		err = c.codec.ReadResponseBody(call.Reply)
 		if err != nil {
-			call.Error = errors.New("reading body " + err.Error())
+			call.Error = errors.New("reading body: " + err.Error())
 		}
 		call.done()
 	}
