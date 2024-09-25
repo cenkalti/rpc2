@@ -31,8 +31,20 @@ type Codec interface {
 	// WriteResponse must be safe for concurrent use by multiple goroutines.
 	WriteResponse(*Response, interface{}) error
 
+	IsV2() bool
+
 	// Close is called when client/server finished with the connection.
 	Close() error
+}
+
+type JsonRpcError struct {
+	Code    int64       `json:"code"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
+}
+
+func (e JsonRpcError) Error() string {
+	return string(e.Message)
 }
 
 // Request is a header written before every RPC call.
@@ -43,8 +55,8 @@ type Request struct {
 
 // Response is a header written before every RPC return.
 type Response struct {
-	Seq   uint64 // echoes that of the request
-	Error string // error, if any.
+	Seq   uint64      // echoes that of the request
+	Error interface{} // error, if any.
 }
 
 type gobCodec struct {
@@ -58,7 +70,7 @@ type gobCodec struct {
 type message struct {
 	Seq    uint64
 	Method string
-	Error  string
+	Error  interface{}
 }
 
 // NewGobCodec returns a new rpc2.Codec using gob encoding/decoding on conn.
@@ -122,4 +134,8 @@ func (c *gobCodec) WriteResponse(r *Response, body interface{}) (err error) {
 
 func (c *gobCodec) Close() error {
 	return c.rwc.Close()
+}
+
+func (c *gobCodec) IsV2() bool {
+	return false
 }
