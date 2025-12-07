@@ -180,3 +180,104 @@ func TestJSONRPC(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestErrorHandling(t *testing.T) {
+	type Reply int
+
+	lis, err := net.Listen(network, "127.0.0.1:5002")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer lis.Close()
+
+	srv := rpc2.NewServer()
+	srv.Handle("stringError", func(client *rpc2.Client, args int, reply *Reply) error {
+		return fmt.Errorf("simple string error")
+	})
+
+	go func() {
+		conn, err := lis.Accept()
+		if err != nil {
+			return
+		}
+		srv.ServeCodec(NewJSONCodec(conn))
+	}()
+
+	conn, err := net.Dial(network, "127.0.0.1:5002")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Close()
+
+	clt := rpc2.NewClientWithCodec(NewJSONCodec(conn))
+	go clt.Run()
+
+	// Test string error
+	var rep Reply
+	err = clt.Call("stringError", 1, &rep)
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if err.Error() != "simple string error" {
+		t.Fatalf("expected 'simple string error', got: %s", err.Error())
+	}
+}
+
+func TestStructuredErrorObject(t *testing.T) {
+	// This test directly sends a JSON-RPC response with a structured error object
+	// to verify the codec can handle it
+	lis, err := net.Listen(network, "127.0.0.1:5003")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer lis.Close()
+
+	go func() {
+		conn, err := lis.Accept()
+		if err != nil {
+			return
+		}
+		defer conn.Close()
+
+		// Read the request
+		dec := json.NewDecoder(conn)
+		var req map[string]any
+		if err := dec.Decode(&req); err != nil {
+			t.Logf("error decoding request: %v", err)
+			return
+		}
+
+		// Send a response with a structured error object (JSON-RPC 2.0 spec)
+		enc := json.NewEncoder(conn)
+		resp := map[string]any{
+			"id": req["id"],
+			"error": map[string]any{
+				"code":    -32601,
+				"message": "Method not found",
+				"data":    "Additional error data",
+			},
+		}
+		enc.Encode(resp)
+	}()
+
+	conn, err := net.Dial(network, "127.0.0.1:5003")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Close()
+
+	clt := rpc2.NewClientWithCodec(NewJSONCodec(conn))
+	go clt.Run()
+
+	var rep int
+	err = clt.Call("someMethod", 1, &rep)
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+
+	// The error should be the marshaled JSON object
+	expectedErr := `{"code":-32601,"data":"Additional error data","message":"Method not found"}`
+	if err.Error() != expectedErr {
+		t.Fatalf("expected error %q, got: %q", expectedErr, err.Error())
+	}
+}
