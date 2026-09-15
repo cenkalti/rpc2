@@ -44,6 +44,8 @@ type jsonCodec struct {
 	mutex   sync.Mutex // protects seq, pending
 	pending map[uint64]*json.RawMessage
 	seq     uint64
+
+	sending sync.Mutex // protects enc
 }
 
 // NewJSONCodec returns a new rpc2.Codec using JSON-RPC on conn.
@@ -200,6 +202,9 @@ func (c *jsonCodec) WriteRequest(r *rpc2.Request, param interface{}) error {
 		seq := r.Seq
 		req.Id = &seq
 	}
+
+	c.sending.Lock()
+	defer c.sending.Unlock()
 	return c.enc.Encode(req)
 }
 
@@ -225,6 +230,9 @@ func (c *jsonCodec) WriteResponse(r *rpc2.Response, x interface{}) error {
 	} else {
 		resp.Error = r.Error
 	}
+
+	c.sending.Lock()
+	defer c.sending.Unlock()
 	return c.enc.Encode(resp)
 }
 
