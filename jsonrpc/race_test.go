@@ -4,6 +4,7 @@ import (
 	"net"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/cenkalti/rpc2"
 )
@@ -40,9 +41,11 @@ func TestConcurrentResponseWrites(t *testing.T) {
 	})
 
 	serverConn := make(chan net.Conn, 1)
+	acceptErr := make(chan error, 1)
 	go func() {
 		conn, err := lis.Accept()
 		if err != nil {
+			acceptErr <- err
 			return
 		}
 		serverConn <- conn
@@ -69,7 +72,19 @@ func TestConcurrentResponseWrites(t *testing.T) {
 		}(i)
 	}
 
-	arrived.Wait()
+	arrivedCh := make(chan struct{})
+	go func() {
+		arrived.Wait()
+		close(arrivedCh)
+	}()
+	select {
+	case <-arrivedCh:
+	case err := <-acceptErr:
+		t.Fatalf("accept: %v", err)
+	case <-time.After(5 * time.Second):
+		t.Fatal("timed out waiting for handlers to start")
+	}
+
 	(<-serverConn).Close()
 	close(release)
 	wg.Wait()
