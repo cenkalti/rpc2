@@ -9,6 +9,41 @@ import (
 	"github.com/cenkalti/rpc2"
 )
 
+// countingCodec wraps a Codec and signals wg once per WriteRequest or
+// WriteResponse call. The race tests below close the connection out from
+// under in-flight writes, so the calls fail quickly; without this, the test
+// function can return - and the process can exit - before every racy Encode
+// has actually run, letting -race miss it.
+type countingCodec struct {
+	rpc2.Codec
+	wg *sync.WaitGroup
+}
+
+func (c *countingCodec) WriteRequest(r *rpc2.Request, body interface{}) error {
+	defer c.wg.Done()
+	return c.Codec.WriteRequest(r, body)
+}
+
+func (c *countingCodec) WriteResponse(r *rpc2.Response, body interface{}) error {
+	defer c.wg.Done()
+	return c.Codec.WriteResponse(r, body)
+}
+
+// waitOrTimeout waits for wg, failing the test if it takes longer than d.
+func waitOrTimeout(t *testing.T, wg *sync.WaitGroup, d time.Duration, msg string) {
+	t.Helper()
+	done := make(chan struct{})
+	go func() {
+		wg.Wait()
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-time.After(d):
+		t.Fatal(msg)
+	}
+}
+
 // TestConcurrentResponseWrites checks that responses written by concurrently
 // running handlers do not overlap on the codec's encoder.
 //
@@ -32,6 +67,11 @@ func TestConcurrentResponseWrites(t *testing.T) {
 	arrived.Add(n)
 	release := make(chan struct{})
 
+	// Signaled once per WriteResponse, so the test can wait for every
+	// handler's response encode to actually run before it returns.
+	var written sync.WaitGroup
+	written.Add(n)
+
 	srv := rpc2.NewServer()
 	srv.Handle("echo", func(_ *rpc2.Client, args []int, reply *int) error {
 		*reply = args[0]
@@ -49,7 +89,7 @@ func TestConcurrentResponseWrites(t *testing.T) {
 			return
 		}
 		serverConn <- conn
-		srv.ServeCodec(NewJSONCodec(conn))
+		srv.ServeCodec(&countingCodec{Codec: NewJSONCodec(conn), wg: &written})
 	}()
 
 	conn, err := net.Dial("tcp4", lis.Addr().String())
@@ -87,5 +127,6 @@ func TestConcurrentResponseWrites(t *testing.T) {
 
 	(<-serverConn).Close()
 	close(release)
+	waitOrTimeout(t, &written, 5*time.Second, "timed out waiting for responses to be written")
 	wg.Wait()
 }
