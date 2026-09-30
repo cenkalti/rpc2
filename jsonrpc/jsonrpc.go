@@ -46,8 +46,8 @@ type jsonCodec struct {
 	seq     uint64
 
 	// writeMu serializes WriteRequest and WriteResponse.
-	// json.Encoder reuses an internal buffer across Encode calls,
-	// so concurrent encodes on the same *json.Encoder race.
+	// json.Encoder isn't safe for concurrent Encode calls.
+	// Separate from rpc2.Client's own "sending" mutex, which never covers WriteResponse.
 	writeMu sync.Mutex
 }
 
