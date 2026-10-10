@@ -3,79 +3,67 @@ rpc2
 
 [![GoDoc](https://godoc.org/github.com/cenkalti/rpc2?status.png)](https://godoc.org/github.com/cenkalti/rpc2)
 
-rpc2 is a fork of net/rpc package in the standard library.
-The main goal is to add bi-directional support to calls.
-That means server can call the methods of client.
-This is not possible with net/rpc package.
-In order to do this it adds a `*Client` argument to method signatures.
+rpc2 is a fork of the standard library's net/rpc package.
+With net/rpc, only the client can call the server.
+With rpc2, the server can call the client too.
+Every handler gets a `*Client` argument to make these calls.
 
 Install
 --------
 
     go get github.com/cenkalti/rpc2
 
-Example server
----------------
+Example
+-------
+
+The server calls back into the client to report progress while it handles
+the client's request.
 
 ```go
 package main
 
 import (
 	"fmt"
+	"log"
 	"net"
 
 	"github.com/cenkalti/rpc2"
 )
 
-type Args struct{ A, B int }
-type Reply int
-
 func main() {
+	serverConn, clientConn := net.Pipe()
+
 	srv := rpc2.NewServer()
-	srv.Handle("add", func(client *rpc2.Client, args *Args, reply *Reply) error {
-
-		// Reversed call (server to client)
-		var rep Reply
-		client.Call("mult", Args{2, 3}, &rep)
-		fmt.Println("mult result:", rep)
-
-		*reply = Reply(args.A + args.B)
+	srv.Handle("process", func(client *rpc2.Client, files []string, reply *int) error {
+		for _, f := range files {
+			// Call back into the client to report progress.
+			if err := client.Call("progress", f, nil); err != nil {
+				return err
+			}
+		}
+		*reply = len(files)
 		return nil
 	})
+	go srv.ServeConn(serverConn)
 
-	lis, _ := net.Listen("tcp", "127.0.0.1:5000")
-	srv.Accept(lis)
-}
-```
-
-Example Client
----------------
-
-```go
-package main
-
-import (
-	"fmt"
-	"net"
-
-	"github.com/cenkalti/rpc2"
-)
-
-type Args struct{ A, B int }
-type Reply int
-
-func main() {
-	conn, _ := net.Dial("tcp", "127.0.0.1:5000")
-
-	clt := rpc2.NewClient(conn)
-	clt.Handle("mult", func(client *rpc2.Client, args *Args, reply *Reply) error {
-		*reply = Reply(args.A * args.B)
+	clt := rpc2.NewClient(clientConn)
+	clt.Handle("progress", func(client *rpc2.Client, file string, _ *struct{}) error {
+		fmt.Println("processed", file)
 		return nil
 	})
 	go clt.Run()
 
-	var rep Reply
-	clt.Call("add", Args{1, 2}, &rep)
-	fmt.Println("add result:", rep)
+	var n int
+	if err := clt.Call("process", []string{"a.jpg", "b.jpg", "c.jpg"}, &n); err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println("done:", n)
 }
 ```
+
+Output:
+
+    processed a.jpg
+    processed b.jpg
+    processed c.jpg
+    done: 3
