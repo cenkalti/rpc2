@@ -283,7 +283,6 @@ func (c *Client) CallWithContext(ctx context.Context, method string, args interf
 	case <-ctx.Done():
 		return ctx.Err()
 	}
-	return nil
 }
 
 // Call invokes the named function, waits for it to complete, and returns its error status.
