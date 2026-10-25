@@ -75,7 +75,8 @@ func TestJSONRPC(t *testing.T) {
 	go func() {
 		conn, err := lis.Accept()
 		if err != nil {
-			t.Fatal(err)
+			t.Error(err)
+			return
 		}
 		srv.ServeCodec(NewJSONCodec(conn))
 	}()
