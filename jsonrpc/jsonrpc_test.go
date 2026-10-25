@@ -12,7 +12,7 @@ import (
 
 const (
 	network = "tcp4"
-	addr    = "127.0.0.1:5001"
+	addr    = "127.0.0.1:0"
 )
 
 func TestJSONRPC(t *testing.T) {
@@ -81,7 +81,7 @@ func TestJSONRPC(t *testing.T) {
 		srv.ServeCodec(NewJSONCodec(conn))
 	}()
 
-	conn, err := net.Dial(network, addr)
+	conn, err := net.Dial(network, lis.Addr().String())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -185,7 +185,7 @@ func TestJSONRPC(t *testing.T) {
 func TestErrorHandling(t *testing.T) {
 	type Reply int
 
-	lis, err := net.Listen(network, "127.0.0.1:5002")
+	lis, err := net.Listen(network, addr)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -204,7 +204,7 @@ func TestErrorHandling(t *testing.T) {
 		srv.ServeCodec(NewJSONCodec(conn))
 	}()
 
-	conn, err := net.Dial(network, "127.0.0.1:5002")
+	conn, err := net.Dial(network, lis.Addr().String())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -227,7 +227,7 @@ func TestErrorHandling(t *testing.T) {
 func TestStructuredErrorObject(t *testing.T) {
 	// This test directly sends a JSON-RPC response with a structured error object
 	// to verify the codec can handle it
-	lis, err := net.Listen(network, "127.0.0.1:5003")
+	lis, err := net.Listen(network, addr)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -261,7 +261,7 @@ func TestStructuredErrorObject(t *testing.T) {
 		enc.Encode(resp)
 	}()
 
-	conn, err := net.Dial(network, "127.0.0.1:5003")
+	conn, err := net.Dial(network, lis.Addr().String())
 	if err != nil {
 		t.Fatal(err)
 	}

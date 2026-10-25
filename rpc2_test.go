@@ -8,7 +8,7 @@ import (
 
 const (
 	network = "tcp4"
-	addr    = "127.0.0.1:5000"
+	addr    = "127.0.0.1:0"
 )
 
 func TestTCPGOB(t *testing.T) {
@@ -43,7 +43,7 @@ func TestTCPGOB(t *testing.T) {
 	})
 	go srv.Accept(lis)
 
-	conn, err := net.Dial(network, addr)
+	conn, err := net.Dial(network, lis.Addr().String())
 	if err != nil {
 		t.Fatal(err)
 	}
