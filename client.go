@@ -360,7 +360,10 @@ func (c *Client) Notify(method string, args interface{}) error {
 	c.sending.Lock()
 	defer c.sending.Unlock()
 
-	if c.shutdown || c.closing {
+	c.mutex.Lock()
+	closed := c.shutdown || c.closing
+	c.mutex.Unlock()
+	if closed {
 		return ErrShutdown
 	}
 
